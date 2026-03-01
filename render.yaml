@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: pubg-tournament
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: BOT_SECRET
+        value: pubg-tournament-secret-2025
+      - key: NODE_ENV
+        value: production

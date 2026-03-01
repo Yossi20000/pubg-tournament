@@ -1,0 +1,1197 @@
+﻿<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PUBG Bot Control Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mony&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #07080c;
+  --bg2:     #0d0f16;
+  --card:    #131620;
+  --card2:   #181b26;
+  --gold:    #f5b700;
+  --gold2:   #ffcf40;
+  --orange:  #ff6b35;
+  --blue:    #00d4ff;
+  --green:   #00ff88;
+  --red:     #ff3b5c;
+  --purple:  #a855f7;
+  --text:    #e8eaf0;
+  --text2:   #8892a4;
+  --border:  rgba(245,183,0,0.15);
+  --glow:    rgba(245,183,0,0.25);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── GRID BACKGROUND ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(245,183,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245,183,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── SCANLINES ── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrap { position: relative; z-index: 1; }
+
+/* ── HEADER ── */
+.hdr {
+  background: linear-gradient(180deg, rgba(13,15,22,0.98) 0%, rgba(7,8,12,0.95) 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+}
+
+.logo {
+  font-family: 'Orbitron', monospace;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--gold);
+  text-shadow: 0 0 20px var(--glow);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-icon {
+  width: 32px; height: 32px;
+  border: 2px solid var(--gold);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  box-shadow: 0 0 12px var(--glow), inset 0 0 8px rgba(245,183,0,0.1);
+}
+.logo span { color: var(--orange); }
+
+/* Live status badge */
+.live-badge {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,255,136,0.08);
+  border: 1px solid rgba(0,255,136,0.25);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 12px; font-weight: 700; letter-spacing: 1px;
+  color: var(--green);
+  transition: .3s;
+}
+.live-badge.offline {
+  background: rgba(255,59,92,0.08);
+  border-color: rgba(255,59,92,0.25);
+  color: var(--red);
+}
+.live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.4s infinite;
+}
+.live-badge.offline .live-dot {
+  background: var(--red);
+  animation: none;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(0,255,136,0.5); }
+  50%      { opacity:.7; box-shadow: 0 0 0 4px rgba(0,255,136,0); }
+}
+
+/* ── MAIN LAYOUT ── */
+.main {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  grid-template-rows: auto auto 1fr;
+  gap: 16px;
+  padding: 20px 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.card-head {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(90deg, rgba(245,183,0,0.06) 0%, transparent 100%);
+}
+.card-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.card-body { padding: 16px 18px; }
+
+/* ── LEFT COLUMN ── */
+.left { grid-column: 1; display: flex; flex-direction: column; gap: 16px; }
+.right { grid-column: 2; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── BOT STATUS CARD ── */
+.bot-status-big {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 14px; padding: 24px 18px;
+}
+.bot-orb {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+  position: relative;
+  transition: .4s;
+  background: var(--card2);
+}
+.bot-orb.running {
+  border-color: var(--green);
+  box-shadow: 0 0 0 6px rgba(0,255,136,0.08), 0 0 30px rgba(0,255,136,0.2);
+  animation: orbPulse 2.5s infinite;
+}
+.bot-orb.lobby {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 6px rgba(245,183,0,0.08), 0 0 24px rgba(245,183,0,0.2);
+}
+.bot-orb.stopped {
+  border-color: var(--red);
+  box-shadow: 0 0 0 6px rgba(255,59,92,0.05);
+  opacity: .7;
+}
+@keyframes orbPulse {
+  0%,100% { box-shadow: 0 0 0 6px rgba(0,255,136,0.08), 0 0 30px rgba(0,255,136,0.2); }
+  50%      { box-shadow: 0 0 0 12px rgba(0,255,136,0.03), 0 0 50px rgba(0,255,136,0.3); }
+}
+.bot-state-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text2);
+  text-align: center;
+}
+.bot-state-label.running { color: var(--green); }
+.bot-state-label.lobby   { color: var(--gold); }
+.bot-state-label.stopped { color: var(--red); }
+
+/* ── CONTROL BUTTONS ── */
+.ctrl-row { display: flex; gap: 8px; width: 100%; }
+.cbtn {
+  flex: 1; padding: 10px 0; border: none; border-radius: 9px;
+  font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: .5px; cursor: pointer; transition: .18s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.cbtn:active { transform: scale(.97); }
+.cbtn-start {
+  background: linear-gradient(135deg, #00ff88, #00c96b);
+  color: #071a0e;
+  box-shadow: 0 4px 18px rgba(0,255,136,0.25);
+}
+.cbtn-start:hover { box-shadow: 0 4px 28px rgba(0,255,136,0.45); transform: translateY(-1px); }
+.cbtn-stop {
+  background: rgba(255,59,92,0.12);
+  border: 1px solid rgba(255,59,92,0.35);
+  color: var(--red);
+}
+.cbtn-stop:hover { background: rgba(255,59,92,0.22); }
+.cbtn-restart {
+  background: rgba(245,183,0,0.1);
+  border: 1px solid rgba(245,183,0,0.3);
+  color: var(--gold);
+}
+.cbtn-restart:hover { background: rgba(245,183,0,0.18); }
+.cbtn:disabled { opacity: .35; cursor: not-allowed; transform: none !important; }
+
+/* ── STATS ROW ── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+}
+.stat-box {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: center;
+}
+.stat-val {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px; font-weight: 900;
+  color: var(--gold);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-lbl {
+  font-size: 9px; font-weight: 600;
+  letter-spacing: 1px; color: var(--text2);
+  text-transform: uppercase;
+}
+.stat-box.green .stat-val { color: var(--green); }
+.stat-box.blue  .stat-val { color: var(--blue); }
+.stat-box.orange .stat-val { color: var(--orange); }
+
+/* ── SETTINGS ── */
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-lbl {
+  font-size: 13px; font-weight: 600; color: var(--text2);
+}
+.setting-lbl small { display: block; font-size: 10px; color: var(--text2); opacity: .6; margin-top: 2px; }
+.num-input {
+  display: flex; align-items: center; gap: 4px;
+}
+.ni-val {
+  font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 700;
+  color: var(--gold); min-width: 32px; text-align: center;
+}
+.ni-btn {
+  width: 24px; height: 24px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--card2);
+  color: var(--text); font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: .15s;
+}
+.ni-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+.toggle {
+  width: 40px; height: 22px; background: var(--card2);
+  border: 1px solid var(--border); border-radius: 11px;
+  position: relative; cursor: pointer; transition: .25s;
+  flex-shrink: 0;
+}
+.toggle.on { background: rgba(0,255,136,0.25); border-color: rgba(0,255,136,0.5); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%; background: var(--text2);
+  transition: .25s; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.toggle.on::after { left: 20px; background: var(--green); }
+
+/* ── OCR PREVIEW ── */
+.ocr-preview {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ocr-img-wrap {
+  width: 100%; height: 140px;
+  display: flex; align-items: center; justify-content: center;
+  background: #000; position: relative; overflow: hidden;
+}
+.ocr-img-wrap img {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain; opacity: .85;
+}
+.ocr-overlay {
+  position: absolute; inset: 0;
+  border: 2px solid rgba(245,183,0,0.4);
+  border-radius: 9px;
+  pointer-events: none;
+}
+.ocr-box {
+  position: absolute;
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  box-shadow: 0 0 6px rgba(245,183,0,0.3);
+}
+.ocr-raw {
+  padding: 10px 12px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; color: var(--text2);
+  line-height: 1.6;
+  min-height: 50px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── CONSOLE ── */
+.console-wrap {
+  background: #040507;
+  border: 1px solid rgba(0,212,255,0.15);
+  border-radius: 10px;
+  overflow: hidden;
+  flex: 1;
+  display: flex; flex-direction: column;
+  min-height: 300px;
+}
+.console-bar {
+  padding: 8px 14px;
+  background: rgba(0,212,255,0.05);
+  border-bottom: 1px solid rgba(0,212,255,0.12);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.console-bar-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; color: var(--blue); letter-spacing: 1px;
+}
+.console-clear {
+  background: transparent; border: 1px solid rgba(0,212,255,0.2);
+  color: var(--text2); font-size: 10px; padding: 3px 10px;
+  border-radius: 4px; cursor: pointer; font-family: 'Share Tech Mono', monospace;
+  transition: .15s;
+}
+.console-clear:hover { border-color: var(--blue); color: var(--blue); }
+.console-log {
+  flex: 1; overflow-y: auto; padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 2px;
+  scroll-behavior: smooth;
+}
+.log-line {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11.5px; line-height: 1.6;
+  color: var(--text2);
+  animation: fadeIn .2s ease;
+  white-space: pre-wrap; word-break: break-all;
+}
+@keyframes fadeIn { from { opacity:0; transform: translateY(4px); } to { opacity:1; transform: none; } }
+.log-line .ts { color: rgba(0,212,255,0.5); margin-left: 8px; }
+.log-line.kill  { color: var(--orange); }
+.log-line.info  { color: var(--text2); }
+.log-line.warn  { color: var(--gold); }
+.log-line.error { color: var(--red); }
+.log-line.good  { color: var(--green); }
+.log-line.mode  { color: var(--purple); font-weight: 600; }
+
+/* ── KILL FEED ── */
+.killfeed { display: flex; flex-direction: column; gap: 6px; }
+.kf-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 13px;
+  animation: slideIn .3s ease;
+  transition: .2s;
+}
+@keyframes slideIn {
+  from { opacity:0; transform: translateX(10px); }
+  to   { opacity:1; transform: none; }
+}
+.kf-item:hover { border-color: rgba(255,107,53,0.3); }
+.kf-item.new { border-color: rgba(255,107,53,0.5); background: rgba(255,107,53,0.07); }
+.kf-icon {
+  font-size: 18px; flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(255,107,53,0.5));
+}
+.kf-team {
+  font-weight: 700; font-size: 14px; color: var(--text); flex: 1;
+}
+.kf-kills {
+  font-family: 'Orbitron', monospace; font-size: 14px;
+  color: var(--orange); font-weight: 700;
+}
+.kf-ts {
+  font-size: 10px; color: var(--text2);
+  font-family: 'Share Tech Mono', monospace;
+}
+.kf-empty {
+  text-align: center; padding: 24px;
+  color: var(--text2); font-size: 13px;
+}
+
+/* ── MODE INDICATOR ── */
+.mode-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 18px;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.mode-indicator {
+  display: flex; align-items: center; gap: 7px;
+  font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700;
+  letter-spacing: 1.5px; color: var(--text2);
+  padding: 5px 12px;
+  border-radius: 7px; border: 1px solid transparent;
+  transition: .3s;
+}
+.mode-indicator.active.lobby {
+  color: var(--gold);
+  background: rgba(245,183,0,0.08);
+  border-color: rgba(245,183,0,0.3);
+}
+.mode-indicator.active.spectate {
+  color: var(--green);
+  background: rgba(0,255,136,0.07);
+  border-color: rgba(0,255,136,0.3);
+  animation: modePulse 2s infinite;
+}
+@keyframes modePulse {
+  0%,100% { box-shadow: none; }
+  50%      { box-shadow: 0 0 12px rgba(0,255,136,0.2); }
+}
+.mode-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+.cur-team-row {
+  margin-right: auto;
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--text2);
+}
+.cur-team-name {
+  font-weight: 700; color: var(--text); font-size: 14px;
+}
+.remaining-badge {
+  font-family: 'Orbitron', monospace; font-size: 10px;
+  color: var(--blue); background: rgba(0,212,255,0.08);
+  border: 1px solid rgba(0,212,255,0.25);
+  border-radius: 5px; padding: 2px 8px;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: rgba(245,183,0,0.25); border-radius: 2px; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .main { grid-template-columns: 1fr; }
+  .left, .right { grid-column: 1; }
+}
+</style>
+<script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="logo">
+    <div class="logo-icon">🤖</div>
+    PUBG<span>BOT</span> CONTROL
+  </div>
+  <div id="liveBadge" class="live-badge offline">
+    <div class="live-dot"></div>
+    <span id="liveLabel">לא מחובר</span>
+  </div>
+</header>
+
+<!-- MAIN GRID -->
+<div class="main">
+
+  <!-- ═══════ LEFT ═══════ -->
+  <div class="left">
+
+    <!-- BOT STATUS -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">⚙️ מצב הבוט</div>
+      </div>
+      <div class="bot-status-big">
+        <div class="bot-orb stopped" id="botOrb">🤖</div>
+        <div class="bot-state-label stopped" id="botStateLabel">OFFLINE</div>
+        <div class="stats-row" style="width:100%">
+          <div class="stat-box green">
+            <div class="stat-val" id="statKills">0</div>
+            <div class="stat-lbl">Kills</div>
+          </div>
+          <div class="stat-box blue">
+            <div class="stat-val" id="statSwitches">0</div>
+            <div class="stat-lbl">מעברים</div>
+          </div>
+          <div class="stat-box orange">
+            <div class="stat-val" id="statTeams">0</div>
+            <div class="stat-lbl">קבוצות</div>
+          </div>
+        </div>
+        <div class="ctrl-row">
+          <button class="cbtn cbtn-start" id="btnStart" onclick="botStart()">▶ הפעל</button>
+          <button class="cbtn cbtn-stop"  id="btnStop"  onclick="botStop()" disabled>⏹ עצור</button>
+        </div>
+        <div class="ctrl-row">
+          <button class="cbtn cbtn-restart" onclick="botRestart()" id="btnRestart" disabled>↺ הפעל מחדש</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">⚙️ הגדרות</div>
+      </div>
+      <div class="card-body">
+        <div class="setting-row">
+          <div class="setting-lbl">זמן רגיל בין קבוצות<small>NORMAL_WAIT (שניות)</small></div>
+          <div class="num-input">
+            <button class="ni-btn" onclick="adjSetting('normal',-1)">−</button>
+            <div class="ni-val" id="setNormal">8</div>
+            <button class="ni-btn" onclick="adjSetting('normal',1)">+</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-lbl">זמן כשיש kills<small>ACTION_WAIT (שניות)</small></div>
+          <div class="num-input">
+            <button class="ni-btn" onclick="adjSetting('action',-1)">−</button>
+            <div class="ni-val" id="setAction">15</div>
+            <button class="ni-btn" onclick="adjSetting('action',1)">+</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-lbl">זמן polling בלובי<small>LOBBY_WAIT (שניות)</small></div>
+          <div class="num-input">
+            <button class="ni-btn" onclick="adjSetting('lobby',-1)">−</button>
+            <div class="ni-val" id="setLobby">5</div>
+            <button class="ni-btn" onclick="adjSetting('lobby',1)">+</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-lbl">יצירת קבוצות אוטומטית<small>Auto-create teams</small></div>
+          <div class="toggle on" id="toggleAutoCreate" onclick="toggleSetting('autoCreate')"></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-lbl">שמירת bridge.js<small>סנכרון עם admin.html</small></div>
+          <div class="toggle on" id="toggleBridge" onclick="toggleSetting('bridge')"></div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="cbtn" style="width:100%;background:linear-gradient(135deg,var(--gold),var(--orange));color:#07080c;border-radius:8px;padding:10px" onclick="applySettings()">
+            💾 שמור הגדרות
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /left -->
+
+  <!-- ═══════ RIGHT ═══════ -->
+  <div class="right">
+
+    <!-- MODE BAR -->
+    <div class="mode-bar">
+      <div class="mode-indicator" id="modeLobby">
+        <div class="mode-dot"></div>LOBBY
+      </div>
+      <div class="mode-indicator" id="modeSpectate">
+        <div class="mode-dot"></div>SPECTATE
+      </div>
+      <div class="cur-team-row">
+        קבוצה נוכחית:&nbsp;
+        <span class="cur-team-name" id="curTeam">—</span>
+      </div>
+      <div class="remaining-badge" id="remBadge" style="display:none">
+        ⬡ <span id="remCount">?</span> נותרו
+      </div>
+    </div>
+
+    <!-- LIVE SCREEN -->
+    <div class="card" style="flex:1">
+      <div class="card-head">
+        <div class="card-title">📺 מסך לייב</div>
+        <span id="ocrTs" style="margin-right:auto;font-size:10px;color:var(--text2);font-family:'Share Tech Mono',monospace"></span>
+        <button class="console-clear" id="btnStream" onclick="toggleStream()" style="background:rgba(0,212,255,0.15);color:var(--blue);border-color:var(--blue)">▶ STREAM</button>
+        <button class="console-clear" id="btnScrcpy" onclick="toggleScrcpy()" style="background:rgba(168,85,247,0.15);color:var(--purple);border-color:var(--purple)">📱 MIRROR</button>
+      </div>
+      <div style="position:relative;width:100%;background:#000;border-radius:8px;overflow:hidden;height:420px;display:flex;align-items:center;justify-content:center;">
+        <!-- MJPEG stream (לייב) -->
+        <img id="streamImg" src="" alt="stream" style="display:none;width:100%;height:100%;object-fit:contain;">
+        <!-- צילום מסך רגיל (fallback) -->
+        <img id="screenshotImg" src="" alt="מסך" style="display:none;width:100%;height:100%;object-fit:contain;">
+        <div style="color:var(--text2);font-size:13px;text-align:center" id="noScreenMsg">
+          <div style="font-size:32px;margin-bottom:8px">📱</div>
+          חבר טלפון ולחץ ▶ STREAM
+        </div>
+        <!-- LIVE badge -->
+        <div id="livePill" style="display:none;position:absolute;top:10px;right:10px;background:#ff3b5c;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:1px;animation:pulse 1.5s infinite">● LIVE</div>
+      </div>
+      <div class="ocr-raw" id="ocrRaw" style="margin-top:8px">// AI Vision output יופיע כאן...</div>
+    </div>
+
+    <!-- KILL FEED + CONSOLE — side by side -->
+    <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;flex:1">
+
+      <!-- KILL FEED -->
+      <div class="card" style="display:flex;flex-direction:column">
+        <div class="card-head">
+          <div class="card-title">🔥 Kill Feed</div>
+          <span id="killCount" style="margin-right:auto;font-family:Orbitron,monospace;font-size:11px;color:var(--orange)">0</span>
+          <button class="console-clear" onclick="clearKillfeed()">נקה</button>
+        </div>
+        <div class="card-body" style="flex:1;overflow-y:auto;max-height:380px" id="killfeedWrap">
+          <div class="kf-empty">אין kills עדיין</div>
+        </div>
+      </div>
+
+      <!-- CONSOLE -->
+      <div class="console-wrap">
+        <div class="console-bar">
+          <span class="console-bar-title">// BOT LOG</span>
+          <button class="console-clear" onclick="clearConsole()">נקה</button>
+        </div>
+        <div class="console-log" id="consoleLog">
+          <div class="log-line good"><span class="ts">[CTRL]</span> פאנל שליטה מוכן. הפעל את הבוט להתחלה.</div>
+        </div>
+      </div>
+
+    </div><!-- /grid -->
+  </div><!-- /right -->
+</div><!-- /main -->
+</div><!-- /wrap -->
+
+<script>
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const settings = {
+  normal: 8, action: 15, lobby: 5,
+  autoCreate: true, bridge: true
+};
+let botRunning  = false;
+let botMode     = 'stopped'; // stopped | lobby | spectate
+let kills       = 0;
+let switches    = 0;
+let killfeedArr = [];
+let lastBridgeTs = null;
+let pollInterval = null;
+let screenshotInterval = null;
+let logBuffer = [];
+let curTeam = '—';
+let curRemaining = null;
+let statsFromBridge = { teams: 0 };
+
+// ══════════════════════════════════════════════
+// BOT CONTROL — pings bridge.js for real data
+// ══════════════════════════════════════════════
+function botStart() {
+  if (botRunning) return;
+  botRunning = true;
+  setBotMode('lobby');
+  setButtons(true);
+  clog('good', '▶ הבוט הופעל');
+  clog('info', 'ממתין לחיבור bridge.js...');
+  startPolling();
+  startScreenshotPoll();
+}
+
+function botStop() {
+  botRunning = false;
+  setBotMode('stopped');
+  setButtons(false);
+  stopPolling();
+  stopScreenshotPoll();
+  clog('error', '⏹ הבוט נעצר');
+}
+
+function botRestart() {
+  if (!botRunning) return;
+  clog('warn', '↺ מאתחל בוט...');
+  stopPolling();
+  setTimeout(() => {
+    startPolling();
+    clog('good', '✓ הבוט אותחל');
+  }, 800);
+}
+
+function setButtons(running) {
+  document.getElementById('btnStart').disabled = running;
+  document.getElementById('btnStop').disabled = !running;
+  document.getElementById('btnRestart').disabled = !running;
+}
+
+// ══════════════════════════════════════════════
+// BRIDGE POLLING — קורא bridge.js כל 2 שניות
+// ══════════════════════════════════════════════
+// SOCKET.IO — עדכון מיידי מהבוט (עובד גם מ-Render)
+// ══════════════════════════════════════════════
+const socket = io();
+socket.on('bot-update', (data) => {
+  if (data.ts === lastBridgeTs) return;
+  lastBridgeTs = data.ts;
+  setBotConnected(true);
+  processBridgeData(data);
+});
+socket.on('connect', () => clog('good', '🔌 Socket.io מחובר'));
+socket.on('disconnect', () => clog('warn', '⚠ Socket.io מנותק'));
+
+// ══════════════════════════════════════════════
+function startPolling() {
+  pollBridge();
+  pollInterval = setInterval(pollBridge, 800);
+}
+function stopPolling() {
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+}
+
+async function pollBridge() {
+  try {
+    const r = await fetch('bridge.js?_=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('bridge.js לא נמצא');
+    const data = await r.json();
+
+    // בדוק אם חדש
+    if (data.ts === lastBridgeTs) return;
+    lastBridgeTs = data.ts;
+
+    setBotConnected(true);
+    processBridgeData(data);
+
+  } catch (e) {
+    setBotConnected(false);
+  }
+}
+
+function processBridgeData(data) {
+  // תמיכה בפורמט bot_ai.py החדש
+  const mode = data.mode || '';
+  const teams = data.teams || {};
+  const lastKills = data.last_kills || [];
+  const teamsAlive = data.teams_alive;
+  const lobbyTeams = data.lobby_teams || [];
+  const lobbyCount = data.lobby_count;
+  const zone = data.zone;
+  const roomId = data.room_id;
+  const roomName = data.room_name;
+  const notes = data.notes;
+  const iteration = data.iteration || 0;
+
+  // מצב טלפון
+  if (data.phone_connected === false) {
+    setPhoneStatus(false);
+    setBotMode('stopped');
+  } else if (data.phone_connected === true) {
+    setPhoneStatus(true);
+    setBotConnected(true);
+  }
+
+  // שגיאה
+  if (data.error) {
+    document.getElementById('ocrRaw').textContent = '⚠ ' + data.error;
+  }
+
+  // עדכן מצב בוט
+  if (mode && botRunning) setBotMode(mode === 'game' ? 'spectate' : mode);
+
+  // עדכן Room ID
+  if (roomId) {
+    const el = document.getElementById('curTeam');
+    if (el) el.textContent = roomName ? `${roomId} — ${roomName}` : roomId;
+  }
+
+  // עדכן קבוצות שנשארו
+  if (teamsAlive !== null && teamsAlive !== undefined) {
+    const el = document.getElementById('remCount');
+    if (el) el.textContent = teamsAlive;
+    const badge = document.getElementById('remBadge');
+    if (badge) badge.style.display = '';
+    curRemaining = teamsAlive;
+  }
+
+  // עדכן Zone
+  if (zone) {
+    const el = document.getElementById('ocrRaw');
+    if (el) el.textContent = `Zone ${zone}${notes ? ' | ' + notes : ''}`;
+  }
+
+  // ספור קבוצות — עדיפות: teams_alive > lobby_count > teams ידועות
+  const teamNames = Object.keys(teams);
+  const totalTeams = (teamsAlive != null ? teamsAlive : null) || lobbyCount || teamNames.length;
+  statsFromBridge.teams = totalTeams;
+  document.getElementById('statTeams').textContent = totalTeams != null ? totalTeams : '—';
+
+  // עדכן מעברים = players_alive
+  const playersAlive = data.players_alive;
+  if (playersAlive != null) {
+    document.getElementById('statPlayers').textContent = playersAlive;
+  }
+
+  // Kill feed — הצג kills חדשים
+  const totalKills = teamNames.reduce((s, k) => s + (teams[k].kills || 0), 0);
+  if (totalKills > kills) {
+    const diff = totalKills - kills;
+    kills = totalKills;
+    document.getElementById('statKills').textContent = kills;
+
+    // הצג kill האחרון ב-feed
+    if (lastKills.length > 0) {
+      const last = lastKills[lastKills.length - 1];
+      addKillfeedItem(
+        `${last.killer} (${last.killer_team})`,
+        kills,
+        diff,
+        last.killed,
+        last.weapon
+      );
+      clog('kill', `🔥 ${last.killer} → ${last.killed} | ${last.weapon || ''}`);
+    }
+  }
+
+  // לובי — הצג קבוצות שנכנסו
+  if (mode === 'lobby' && lobbyTeams.length > 0) {
+    const el = document.getElementById('ocrRaw');
+    if (el) el.textContent = `לובי: ${lobbyTeams.join(', ')} (${lobbyTeams.length})`;
+  }
+
+  // עדכן iteration/timestamp
+  const tsEl = document.getElementById('ocrTs');
+  if (tsEl && data.ts) {
+    const d = new Date(data.ts * 1000);
+    tsEl.textContent = `#${iteration} | ${d.toLocaleTimeString('he-IL')}`;
+  }
+
+  switches = iteration;
+  document.getElementById('statSwitches').textContent = iteration;
+}
+
+function findLastKillTeam(state) { return null; } // legacy stub
+
+function updateOcrDisplay(data) {} // legacy stub — replaced by processBridgeData
+
+// ══════════════════════════════════════════════
+// LIVE STREAM (MJPEG)
+// ══════════════════════════════════════════════
+let streamActive = false;
+let scrcpyActive = false;
+
+function toggleStream() {
+  if (streamActive) {
+    stopStream();
+  } else {
+    startStream();
+  }
+}
+
+function startStream() {
+  const img = document.getElementById('streamImg');
+  const noMsg = document.getElementById('noScreenMsg');
+  const pill = document.getElementById('livePill');
+  const btn = document.getElementById('btnStream');
+
+  img.src = '/api/stream?' + Date.now();
+  img.style.display = '';
+  img.onerror = () => { clog('error', '❌ Stream נכשל — טלפון מחובר?'); stopStream(); };
+  noMsg.style.display = 'none';
+  pill.style.display = '';
+  btn.textContent = '⏹ עצור';
+  btn.style.background = 'rgba(255,59,92,0.2)';
+  btn.style.color = 'var(--red)';
+  btn.style.borderColor = 'var(--red)';
+  streamActive = true;
+  clog('good', '📺 Stream הופעל — MJPEG לייב');
+
+  // הפסק screenshot polling כי יש stream
+  stopScreenshotPoll();
+}
+
+function stopStream() {
+  const img = document.getElementById('streamImg');
+  const pill = document.getElementById('livePill');
+  const btn = document.getElementById('btnStream');
+
+  img.src = '';
+  img.style.display = 'none';
+  pill.style.display = 'none';
+  btn.textContent = '▶ STREAM';
+  btn.style.background = 'rgba(0,212,255,0.15)';
+  btn.style.color = 'var(--blue)';
+  btn.style.borderColor = 'var(--blue)';
+  streamActive = false;
+  clog('warn', '⏹ Stream נעצר');
+
+  // חזור לscreenshot polling
+  if (botRunning) startScreenshotPoll();
+}
+
+function toggleScrcpy() {
+  if (scrcpyActive) {
+    fetch('/api/scrcpy-stop', { method: 'POST' });
+    document.getElementById('btnScrcpy').textContent = '📱 MIRROR';
+    scrcpyActive = false;
+    clog('warn', '⏹ Mirror נעצר');
+  } else {
+    fetch('/api/scrcpy-start', { method: 'POST' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          document.getElementById('btnScrcpy').textContent = '⏹ סגור Mirror';
+          scrcpyActive = true;
+          clog('good', '📱 Mirror פתוח — 30fps אמיתי בחלון נפרד');
+        } else {
+          clog('error', '❌ Mirror: ' + d.msg);
+        }
+      });
+  }
+}
+
+// ══════════════════════════════════════════════
+// SCREENSHOT POLLING (fallback כשאין stream)
+// ══════════════════════════════════════════════
+function startScreenshotPoll() {
+  loadScreenshot();
+  screenshotInterval = setInterval(loadScreenshot, 4000);
+}
+function stopScreenshotPoll() {
+  if (screenshotInterval) { clearInterval(screenshotInterval); screenshotInterval = null; }
+}
+async function loadScreenshot() {
+  try {
+    const r = await fetch('/api/screenshot?_=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error();
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const img = document.getElementById('screenshotImg');
+    img.onload = () => URL.revokeObjectURL(url);
+    img.src = url;
+    img.style.display = '';
+    document.getElementById('noScreenMsg').style.display = 'none';
+  } catch (e) {
+    // no screenshot yet
+  }
+}
+function refreshScreenshot() { loadScreenshot(); clog('info', '🔄 מסך רוענן'); }
+
+// ══════════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════════
+function setBotMode(mode) {
+  botMode = mode;
+  const orb = document.getElementById('botOrb');
+  const lbl = document.getElementById('botStateLabel');
+  orb.className = 'bot-orb ' + mode;
+  lbl.className = 'bot-state-label ' + mode;
+
+  const labels = { stopped:'OFFLINE', lobby:'LOBBY', spectate:'SPECTATE — LIVE' };
+  lbl.textContent = labels[mode] || mode.toUpperCase();
+
+  // Mode bar
+  document.getElementById('modeLobby').className    = 'mode-indicator' + (mode==='lobby'    ? ' active lobby'    : '');
+  document.getElementById('modeSpectate').className = 'mode-indicator' + (mode==='spectate' ? ' active spectate' : '');
+}
+
+function setBotConnected(ok) {
+  const badge = document.getElementById('liveBadge');
+  const label = document.getElementById('liveLabel');
+  if (ok) {
+    badge.className = 'live-badge';
+    label.textContent = 'מחובר';
+    if (!botRunning) { botRunning = true; setBotMode('lobby'); setButtons(true); }
+  } else {
+    badge.className = 'live-badge offline';
+    label.textContent = 'לא מחובר';
+  }
+}
+
+function setPhoneStatus(connected) {
+  const badge = document.getElementById('liveBadge');
+  const label = document.getElementById('liveLabel');
+  if (connected) {
+    badge.className = 'live-badge';
+    label.textContent = '📱 מחובר';
+  } else {
+    badge.className = 'live-badge offline';
+    label.textContent = '📵 טלפון מנותק';
+    document.getElementById('ocrRaw').textContent = '⚠ טלפון לא מחובר — חבר כבל USB';
+  }
+}
+
+// ══════════════════════════════════════════════
+// KILL FEED
+// ══════════════════════════════════════════════
+function addKillfeedItem(team, total, diff) {
+  const ts = new Date().toLocaleTimeString('he-IL');
+  killfeedArr.unshift({ team, total, diff, ts, id: Date.now() });
+  if (killfeedArr.length > 50) killfeedArr.pop();
+  renderKillfeed();
+  document.getElementById('killCount').textContent = killfeedArr.length;
+}
+
+function renderKillfeed() {
+  const wrap = document.getElementById('killfeedWrap');
+  if (!killfeedArr.length) {
+    wrap.innerHTML = '<div class="kf-empty">אין kills עדיין</div>';
+    return;
+  }
+  wrap.innerHTML = killfeedArr.slice(0,20).map((k,i) => `
+    <div class="kf-item ${i===0?'new':''}">
+      <div class="kf-icon">💀</div>
+      <div class="kf-team">${esc(k.team)}</div>
+      <div class="kf-kills">+${k.diff}</div>
+      <div class="kf-ts">${k.ts}</div>
+    </div>`).join('');
+}
+
+function clearKillfeed() {
+  killfeedArr = [];
+  kills = 0;
+  document.getElementById('statKills').textContent = '0';
+  document.getElementById('killCount').textContent = '0';
+  renderKillfeed();
+  clog('warn', '🗑 Kill feed נוקה');
+}
+
+// ══════════════════════════════════════════════
+// CONSOLE
+// ══════════════════════════════════════════════
+function clog(type, msg) {
+  const ts = new Date().toLocaleTimeString('he-IL');
+  const el = document.createElement('div');
+  el.className = 'log-line ' + type;
+  el.innerHTML = `<span class="ts">[${ts}]</span> ${esc(msg)}`;
+  const log = document.getElementById('consoleLog');
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+  // limit
+  while (log.children.length > 200) log.removeChild(log.firstChild);
+}
+function clearConsole() {
+  document.getElementById('consoleLog').innerHTML = '';
+}
+
+// ═════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════
+const settingMeta = { normal: {min:2,max:60}, action:{min:5,max:120}, lobby:{min:2,max:30} };
+function adjSetting(key, d) {
+  const m = settingMeta[key];
+  settings[key] = Math.min(m.max, Math.max(m.min, settings[key]+d));
+  document.getElementById('set'+key.charAt(0).toUpperCase()+key.slice(1)).textContent = settings[key];
+}
+function toggleSetting(key) {
+  settings[key] = !settings[key];
+  document.getElementById('toggle'+key.charAt(0).toUpperCase()+key.slice(1)).classList.toggle('on', settings[key]);
+}
+function applySettings() {
+  // שמור ל-localStorage כדי ש-bridge.js יוכל לקרוא
+  localStorage.setItem('pubg_bot_settings', JSON.stringify(settings));
+  clog('good', `✓ הגדרות נשמרו: normal=${settings.normal}s action=${settings.action}s lobby=${settings.lobby}s`);
+  // כתוב settings.json לתיקייה
+  writeSettingsFile();
+}
+
+async function writeSettingsFile() {
+  // אם יש server.js שרץ — שלח POST
+  try {
+    await fetch('/api/bot-settings', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(settings)
+    });
+  } catch (e) {
+    // no server — that's ok, localStorage is enough
+  }
+}
+
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+// טען הגדרות שמורות
+(function init() {
+  const saved = localStorage.getItem('pubg_bot_settings');
+  if (saved) {
+    try {
+      const s = JSON.parse(saved);
+      Object.assign(settings, s);
+      document.getElementById('setNormal').textContent = settings.normal;
+      document.getElementById('setAction').textContent = settings.action;
+      document.getElementById('setLobby').textContent  = settings.lobby;
+      document.getElementById('toggleAutoCreate').classList.toggle('on', settings.autoCreate);
+      document.getElementById('toggleBridge').classList.toggle('on', settings.bridge);
+    } catch(e){}
+  }
+  // בדוק אם bridge.js כבר קיים (בוט כבר רץ)
+  fetch('bridge.js?_='+Date.now(), {cache:'no-store'})
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data && data.ts && data.ts > 1740000001) {
+        // בוט רץ ברקע — הפעל מצב אוטומטי
+        botRunning = true;
+        setButtons(true);
+        setBotConnected(true);
+        processBridgeData(data);
+        clog('good', '✓ בוט מחובר אוטומטית (bridge.js נמצא)');
+        loadScreenshot();
+        startPolling();
+        startScreenshotPoll();
+      } else {
+        // רק bridge עם test data — אל תפעיל
+        clog('info', 'מוכן — לחץ הפעל להתחלה');
+        startPolling(); // תאזין בכל מקרה
+      }
+    })
+    .catch(() => {
+      clog('warn', '⚠ bridge.js לא נמצא — הפעל בוט');
+    });
+})();
+
+// simulate demo data every few seconds for testing
+let demoMode = false;
+function enableDemo() {
+  demoMode = true;
+  setBotMode('lobby');
+  setButtons(true);
+  botRunning = true;
+  clog('warn', '⚠ מצב דמו פעיל — נתונים מדומים');
+  setTimeout(() => {
+    setBotMode('spectate');
+    clog('mode', '🎮 SPECTATE מזוהה');
+    document.getElementById('curTeam').textContent = 'FC786';
+    document.getElementById('remBadge').style.display='';
+    document.getElementById('remCount').textContent = '18';
+    document.getElementById('statTeams').textContent = 6;
+  }, 2000);
+  let sc = 0;
+  const demoTeams = ['FC786','ALPHA','BEAST','GG_PRO','ZONE42','STORM'];
+  const demoInt = setInterval(() => {
+    if (!demoMode) { clearInterval(demoInt); return; }
+    sc++;
+    const t = demoTeams[sc % demoTeams.length];
+    document.getElementById('statSwitches').textContent = sc;
+    document.getElementById('curTeam').textContent = t;
+    if (sc % 3 === 0) {
+      const kk = Math.ceil(Math.random()*2);
+      addKillfeedItem(t, kk, kk);
+    }
+    document.getElementById('statTeams').textContent = Math.min(16, sc+2);
+  }, 3000);
+}
+</script>
+</body>
+</html>

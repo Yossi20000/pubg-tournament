@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>OBS Overlay 4 — Timer</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:transparent;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.wrap{position:relative;width:220px;height:220px;}
+svg{position:absolute;top:0;left:0;transform:rotate(-90deg);}
+.ring-bg{fill:none;stroke:rgba(255,255,255,0.07);stroke-width:12;}
+.ring-fg{fill:none;stroke:#f5b700;stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset 0.9s linear,stroke 0.5s;}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.time{font-family:'Courier New',monospace;font-size:38px;font-weight:900;color:#f5b700;letter-spacing:2px;text-shadow:0 0 20px rgba(245,183,0,0.5);transition:color .5s;}
+.time.running{color:#00ff88;text-shadow:0 0 20px rgba(0,255,136,0.5);}
+.time.warn{color:#ff6b35;text-shadow:0 0 20px rgba(255,107,53,0.5);}
+.time.danger{color:#ff3b5c;text-shadow:0 0 20px rgba(255,59,92,0.5);animation:pulse .5s infinite;}
+.time.done{color:#ff3b5c;animation:pulse .4s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.label{font-family:'Courier New',monospace;font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:3px;margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <svg viewBox="0 0 220 220" width="220" height="220">
+    <circle class="ring-bg" cx="110" cy="110" r="96"/>
+    <circle class="ring-fg" id="ring" cx="110" cy="110" r="96"/>
+  </svg>
+  <div class="center">
+    <div class="time" id="timeDisp">00:00</div>
+    <div class="label">TIMER</div>
+  </div>
+</div>
+<script>
+const C=2*Math.PI*96;
+const ring=document.getElementById('ring');
+const timeDisp=document.getElementById('timeDisp');
+ring.style.strokeDasharray=C;
+ring.style.strokeDashoffset=C;
+
+let timerState={totalSeconds:600,remaining:600,running:false};
+const socket=io();
+socket.on('update',(data)=>{if(data.timer){timerState=data.timer;render();}});
+
+function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
+function render(){
+  const {totalSeconds,remaining,running}=timerState;
+  const pct=totalSeconds>0?remaining/totalSeconds:0;
+  const offset=C*(1-pct);
+  ring.style.strokeDashoffset=offset;
+  timeDisp.textContent=fmt(remaining);
+  let cls='time';let color='#f5b700';
+  if(remaining===0){cls='time done';color='#ff3b5c';}
+  else if(running&&pct<=0.1){cls='time danger';color='#ff3b5c';}
+  else if(running&&pct<=0.25){cls='time warn';color='#ff6b35';}
+  else if(running){cls='time running';color='#00ff88';}
+  timeDisp.className=cls;
+  ring.style.stroke=color;
+}
+render();
+</script>
+</body>
+</html>

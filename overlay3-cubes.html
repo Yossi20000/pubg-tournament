@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>OBS Overlay 3 — Cubes</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:transparent;font-family:'Rajdhani',sans-serif;direction:rtl;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px;}
+.panel{background:rgba(8,9,13,0.9);border:1px solid rgba(245,183,0,0.35);border-radius:14px;padding:14px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 10px 50px rgba(0,0,0,0.7),0 0 30px rgba(245,183,0,0.06);max-width:780px;width:100%;}
+.hdr{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;color:#f5b700;letter-spacing:2.5px;text-align:center;padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid rgba(245,183,0,0.2);text-shadow:0 0 15px rgba(245,183,0,0.3);}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.cube{background:rgba(26,29,38,0.9);border:1px solid rgba(245,183,0,0.2);border-radius:10px;padding:10px 8px;text-align:center;transition:all .25s;animation:fadeUp .4s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.cube:hover{border-color:rgba(245,183,0,0.45);background:rgba(26,29,38,1);}
+.cube.elim{background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.07);opacity:0.35;}
+.cube[data-rank="1"]{border-color:rgba(245,183,0,0.7);box-shadow:0 0 16px rgba(245,183,0,0.18);}
+.cube[data-rank="2"]{border-color:rgba(192,192,192,0.5);}
+.cube[data-rank="3"]{border-color:rgba(205,127,50,0.5);}
+.cube-rank{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;margin-bottom:4px;color:rgba(245,183,0,0.6);}
+.cube[data-rank="1"] .cube-rank{color:#f5b700;text-shadow:0 0 8px rgba(245,183,0,0.5);}
+.cube[data-rank="2"] .cube-rank{color:#c0c0c0;}
+.cube[data-rank="3"] .cube-rank{color:#cd7f32;}
+.cube-name{font-size:12px;font-weight:700;color:#e8eaf0;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;}
+.cube.elim .cube-name{color:#4b5563;}
+.cube-dots{display:flex;justify-content:center;gap:3px;margin-bottom:7px;}
+.dot{width:7px;height:7px;border-radius:50%;}
+.dot.alive{background:#00ff88;box-shadow:0 0 4px rgba(0,255,136,0.5);}
+.dot.knocked{background:#ff6b35;animation:ko 1.2s infinite;}
+.dot.dead{background:rgba(255,59,92,0.3);}
+@keyframes ko{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.cube-bottom{display:flex;justify-content:space-around;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;margin-top:2px;}
+.cstat{font-size:9px;color:rgba(255,255,255,0.3);line-height:1;}
+.cstat .v{display:block;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;margin-bottom:2px;}
+.cstat .kills-v{color:#ff6b35;}.cstat .pts-v{color:#f5b700;}
+.placement-tag{font-family:'Orbitron',monospace;font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.35);margin-bottom:4px;display:inline-block;}
+.placement-tag.p1{background:rgba(245,183,0,0.18);border-color:rgba(245,183,0,0.5);color:#f5b700;}
+.placement-tag.p2{background:rgba(192,192,192,0.1);border-color:rgba(192,192,192,0.3);color:#c0c0c0;}
+.placement-tag.p3{background:rgba(205,127,50,0.1);border-color:rgba(205,127,50,0.3);color:#cd7f32;}
+.empty{padding:40px;text-align:center;color:rgba(255,255,255,0.15);font-size:14px;grid-column:span 4;}
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="hdr">🏆 TOURNAMENT STANDINGS</div>
+  <div class="grid" id="grid"><div class="empty">ממתין לנתונים...</div></div>
+</div>
+<script>
+const PTS={1:10,2:6,3:5,4:4,5:3,6:2,7:1};
+function getPts(p){return PTS[p]||0;}
+function loadState(){try{return JSON.parse(localStorage.getItem('pubg_state'));}catch(e){return null;}}
+function getAllTeams(state){return(state?.houses||[]).flatMap(h=>h.teams||[]);}
+function getSorted(all){return[...all].sort((a,b)=>{if(a.eliminated&&!b.eliminated)return 1;if(!a.eliminated&&b.eliminated)return-1;return b.totalPoints-a.totalPoints;});}
+function esc(s){return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function render(){
+  const state=loadState();const all=getAllTeams(state);const sorted=getSorted(all);
+  const grid=document.getElementById('grid');
+  if(!sorted.length){grid.innerHTML='<div class="empty">ממתין לנתונים...</div>';return;}
+  grid.innerHTML=sorted.map((t,i)=>{
+    const rank=i+1;const dots=t.players.map(p=>`<span class="dot ${p.status}"></span>`).join('');
+    const pc=t.placement===1?'p1':t.placement===2?'p2':t.placement===3?'p3':'';
+    const ptag=t.placement?`<span class="placement-tag ${pc}">מקום #${t.placement}</span>`:'<span class="placement-tag">-</span>';
+    return`<div class="cube${t.eliminated?' elim':''}" data-rank="${rank}"><div class="cube-rank">#${rank}</div><div class="cube-name">${esc(t.name)}</div><div class="cube-dots">${dots}</div>${ptag}<div class="cube-bottom"><div class="cstat"><span class="v kills-v">${t.kills}</span>🎯</div><div class="cstat"><span class="v pts-v">${t.totalPoints}</span>PTS</div></div></div>`;
+  }).join('');
+}
+try{new BroadcastChannel('pubg_overlay').onmessage=()=>render();}catch(e){}
+setInterval(render,500);render();
+window.addEventListener('storage',e=>{if(e.key==='pubg_state')render();});
+</script>
+</body>
+</html>

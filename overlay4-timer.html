@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>OBS Overlay 4 — Timer</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:transparent;font-family:'Rajdhani',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.timer-wrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.ring-svg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);pointer-events:none;}
+.ring-bg{fill:none;stroke:rgba(255,255,255,0.06);stroke-width:6;}
+.ring-fg{fill:none;stroke:var(--clr,#f5b700);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset 0.9s linear,stroke 0.5s;filter:drop-shadow(0 0 6px var(--clr,#f5b700));}
+.timer-card{width:220px;height:220px;background:rgba(8,9,13,0.85);border:2px solid rgba(245,183,0,0.4);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 10px 50px rgba(0,0,0,0.6),0 0 30px rgba(245,183,0,0.1);transition:border-color 0.5s,box-shadow 0.5s;position:relative;}
+.timer-card.running{border-color:rgba(0,255,136,0.5);box-shadow:0 10px 50px rgba(0,0,0,0.6),0 0 30px rgba(0,255,136,0.12);}
+.timer-card.warn{border-color:rgba(255,107,53,0.6);box-shadow:0 10px 50px rgba(0,0,0,0.6),0 0 30px rgba(255,107,53,0.2);}
+.timer-card.danger{border-color:rgba(255,59,92,0.8);box-shadow:0 10px 50px rgba(0,0,0,0.6),0 0 40px rgba(255,59,92,0.3);}
+.timer-card.done{border-color:rgba(255,59,92,0.9);animation:donePulse 1s infinite;}
+@keyframes donePulse{0%,100%{box-shadow:0 10px 50px rgba(0,0,0,0.6),0 0 40px rgba(255,59,92,0.3);}50%{box-shadow:0 10px 50px rgba(0,0,0,0.6),0 0 60px rgba(255,59,92,0.6);}}
+.timer-label{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:2.5px;color:rgba(245,183,0,0.6);margin-bottom:4px;}
+.timer-label.running{color:rgba(0,255,136,0.7);}
+.timer-label.warn{color:rgba(255,107,53,0.8);}
+.timer-label.danger,.timer-label.done{color:rgba(255,59,92,0.9);}
+.timer-time{font-family:'Orbitron',monospace;font-size:46px;font-weight:900;color:#f5b700;line-height:1;text-shadow:0 0 20px rgba(245,183,0,0.5);letter-spacing:2px;transition:color 0.5s,text-shadow 0.5s;}
+.timer-time.running{color:#00ff88;text-shadow:0 0 20px rgba(0,255,136,0.5);}
+.timer-time.warn{color:#ff6b35;text-shadow:0 0 20px rgba(255,107,53,0.6);animation:tWarn 1s infinite;}
+.timer-time.danger{color:#ff3b5c;text-shadow:0 0 20px rgba(255,59,92,0.7);animation:tWarn .5s infinite;}
+.timer-time.done{color:#ff3b5c;text-shadow:0 0 30px rgba(255,59,92,0.8);}
+@keyframes tWarn{0%,100%{opacity:1;}50%{opacity:.7;}}
+.timer-status{font-family:'Orbitron',monospace;font-size:9px;color:rgba(255,255,255,0.25);letter-spacing:1.5px;margin-top:4px;}
+.timer-status.running{color:rgba(0,255,136,0.5);}
+.timer-status.done{color:rgba(255,59,92,0.8);font-size:11px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#ff3b5c;animation:ldBlink 1s infinite;box-shadow:0 0 6px #ff3b5c;margin-top:2px;}
+@keyframes ldBlink{0%,100%{opacity:1;}50%{opacity:.15;}}
+</style>
+</head>
+<body>
+<div class="timer-wrap">
+  <svg class="ring-svg" width="240" height="240" viewBox="0 0 240 240">
+    <circle class="ring-bg" cx="120" cy="120" r="108"/>
+    <circle class="ring-fg" id="ringFg" cx="120" cy="120" r="108" stroke-dasharray="678.6" stroke-dashoffset="0"/>
+  </svg>
+  <div class="timer-card" id="card">
+    <div class="timer-label" id="lbl">TIMER</div>
+    <div class="timer-time" id="time">00:00</div>
+    <div class="timer-status" id="status">ממתין...</div>
+  </div>
+  <div class="live-dot"></div>
+</div>
+<script>
+const CIRC=2*Math.PI*108;
+let timerState={remaining:0,totalSeconds:0,running:false};
+function fmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
+function render(){
+  const{remaining,totalSeconds,running}=timerState;
+  const pct=totalSeconds>0?remaining/totalSeconds:0;
+  const done=remaining<=0&&totalSeconds>0;
+  const warn=pct<=0.25&&pct>0.1&&running;
+  const danger=pct<=0.1&&running&&!done;
+  const card=document.getElementById('card');
+  const lbl=document.getElementById('lbl');
+  const time=document.getElementById('time');
+  const stat=document.getElementById('status');
+  const ring=document.getElementById('ringFg');
+  ['running','warn','danger','done'].forEach(c=>{card.classList.remove(c);lbl.classList.remove(c);time.classList.remove(c);stat.classList.remove(c);});
+  let sk='';
+  if(done)sk='done';else if(danger)sk='danger';else if(warn)sk='warn';else if(running)sk='running';
+  if(sk){card.classList.add(sk);lbl.classList.add(sk);time.classList.add(sk);stat.classList.add(sk);}
+  const clr=sk==='done'||sk==='danger'?'#ff3b5c':sk==='warn'?'#ff6b35':sk==='running'?'#00ff88':'#f5b700';
+  document.body.style.setProperty('--clr',clr);
+  ring.style.stroke=clr;
+  ring.style.strokeDashoffset=CIRC*(1-pct);
+  time.textContent=fmt(remaining);
+  lbl.textContent=done?'TIME\'S UP!':running?'RUNNING':'PAUSED';
+  stat.textContent=done?'⏰ זמן נגמר!':running?`${fmt(remaining)} נותרו`:totalSeconds>0?fmt(remaining):'ממתין...';
+}
+function loadData(){try{const raw=localStorage.getItem('pubg_broadcast');if(!raw)return;const d=JSON.parse(raw);if(d?.timer){timerState=d.timer;render();}}catch(e){}}
+try{const bc=new BroadcastChannel('pubg_overlay');bc.onmessage=e=>{if(e.data?.timer){timerState=e.data.timer;render();}};}catch(e){}
+setInterval(loadData,300);
+loadData();
+window.addEventListener('storage',e=>{if(e.key==='pubg_broadcast')loadData();});
+</script>
+</body>
+</html>

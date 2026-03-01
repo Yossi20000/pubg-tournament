@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>OBS Overlay 1 — Live Status</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:transparent;font-family:'Rajdhani',sans-serif;direction:rtl;display:flex;align-items:flex-start;justify-content:flex-end;min-height:100vh;padding:12px;}
+.panel{width:270px;background:rgba(8,9,13,0.88);border:1px solid rgba(245,183,0,0.45);border-radius:12px;overflow:hidden;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 8px 40px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.05);}
+.panel-hdr{background:linear-gradient(135deg,rgba(245,183,0,0.18),rgba(255,107,53,0.1));padding:9px 13px;border-bottom:1px solid rgba(245,183,0,0.3);display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:#f5b700;letter-spacing:1.5px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#ff3b5c;animation:blink 1s infinite;box-shadow:0 0 6px #ff3b5c;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.2;}}
+.col-hdr{display:flex;padding:5px 10px;font-size:9px;font-weight:700;color:rgba(245,183,0,0.5);letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.05);gap:4px;}
+.col-pos{width:22px;text-align:center;}.col-name{flex:1;}.col-dots{width:42px;text-align:center;}.col-k{width:26px;text-align:center;}.col-p{width:32px;text-align:center;}
+.row{display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,0.04);gap:4px;transition:background 0.3s;animation:fadeIn 0.3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateX(6px);}to{opacity:1;transform:translateX(0);}}
+.row.elim{background:rgba(255,255,255,0.015);opacity:0.45;}
+.row-pos{font-family:'Orbitron',monospace;font-size:10px;color:#f5b700;width:22px;text-align:center;font-weight:700;}
+.row-pos.pos1{color:#f5b700;text-shadow:0 0 8px rgba(245,183,0,0.6);}.row-pos.pos2{color:#c0c0c0;}.row-pos.pos3{color:#cd7f32;}
+.row-name{flex:1;font-size:13px;font-weight:700;color:#e8eaf0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;}
+.row.elim .row-name{color:#4b5563;}
+.dots{width:42px;display:flex;gap:3px;justify-content:center;}
+.dot{width:7px;height:7px;border-radius:50%;}
+.dot.alive{background:#00ff88;box-shadow:0 0 4px rgba(0,255,136,0.5);}
+.dot.knocked{background:#ff6b35;animation:pOrange 1.2s infinite;box-shadow:0 0 4px rgba(255,107,53,0.5);}
+.dot.dead{background:rgba(255,59,92,0.3);}
+@keyframes pOrange{0%,100%{opacity:1;}50%{opacity:0.4;}}
+.row-k{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;color:#ff6b35;width:26px;text-align:center;}
+.row-p{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:#f5b700;width:32px;text-align:center;}
+.empty{padding:20px;text-align:center;color:rgba(255,255,255,0.2);font-size:13px;}
+</style>
+</head>
+<body>
+<div class="panel" id="panel">
+  <div class="panel-hdr">
+    <span class="panel-title">⚡ LIVE STATUS</span>
+    <span class="live-dot"></span>
+  </div>
+  <div class="col-hdr">
+    <span class="col-pos">#</span>
+    <span class="col-name">קבוצה</span>
+    <span class="col-dots">שחקנים</span>
+    <span class="col-k">🎯</span>
+    <span class="col-p">PTS</span>
+  </div>
+  <div id="rows"><div class="empty">ממתין לנתונים...</div></div>
+</div>
+<script>
+let gameState = null;
+const socket = io();
+socket.on('update', (data) => { if(data.state) { gameState = data.state; render(); } });
+
+function getAllTeams(state){return(state?.houses||[]).flatMap(h=>h.teams||[]);}
+function getSorted(state){const all=getAllTeams(state);return[...all].sort((a,b)=>{if(a.eliminated&&!b.eliminated)return 1;if(!a.eliminated&&b.eliminated)return-1;return b.totalPoints-a.totalPoints;});}
+function render(){
+  const sorted=getSorted(gameState);
+  const root=document.getElementById('rows');
+  if(!sorted.length){root.innerHTML='<div class="empty">ממתין לנתונים...</div>';return;}
+  root.innerHTML=sorted.map((t,i)=>{
+    const pos=i+1;const posCls=pos===1?'pos1':pos===2?'pos2':pos===3?'pos3':'';
+    const dots=t.players.map(p=>`<span class="dot ${p.status}"></span>`).join('');
+    return`<div class="row${t.eliminated?' elim':''}"><span class="row-pos ${posCls}">${pos}</span><span class="row-name">${esc(t.name)}</span><div class="dots">${dots}</div><span class="row-k">${t.kills}</span><span class="row-p">${t.totalPoints}</span></div>`;
+  }).join('');
+}
+function esc(s){return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+</script>
+</body>
+</html>
