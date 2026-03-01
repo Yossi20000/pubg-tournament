@@ -1,4 +1,0 @@
-[20:18:44] ==================================================
-[20:18:44] PUBG Tournament Bot v5 - AI Vision Edition
-[20:18:44] ==================================================
-[20:18:44] ERROR: Missing ANTHROPIC_API_KEY! Set it in panel settings
