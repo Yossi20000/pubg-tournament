@@ -16,7 +16,7 @@ STATE_FILE      = WORK_DIR / "tournament_state.json"
 LOG_FILE        = WORK_DIR / "bot_ai.log"
 CAPTURE_INTERVAL  = 1.5
 CLAUDE_MODEL      = "claude-haiku-4-5-20251001"
-CLAUDE_MAX_TOKENS = 512
+CLAUDE_MAX_TOKENS = 1024
 CLAUDE_API_URL    = "https://api.anthropic.com/v1/messages"
 
 # כתובת ה-Render — ריק = רק מקומי
@@ -27,7 +27,26 @@ ADB_CANDIDATES = [
     r"C:\Users\misra\AppData\Local\Android\Sdk\platform-tools\adb.exe",
     "adb",
 ]
-VISION_PROMPT = 'Analyze this PUBG Mobile screenshot. Return ONLY valid JSON, no markdown:\n{"mode":"lobby|game|spectate|loading|unknown","room_id":null,"room_name":null,"teams_alive":null,"players_alive":null,"zone_number":null,"eliminations":[],"lobby_teams":[],"lobby_count":null,"notes":""}\nBe brief. Only include eliminations visible RIGHT NOW in kill feed.'
+VISION_PROMPT = '''Analyze this PUBG Mobile tournament screenshot. Return ONLY valid JSON, no markdown, no explanation.
+
+JSON format:
+{"mode":"lobby|game|spectate|loading|unknown","room_id":null,"room_name":null,"teams_alive":null,"players_alive":null,"zone_number":null,"eliminations":[],"lobby_teams":[],"lobby_count":null,"notes":""}
+
+Rules:
+- mode: "lobby" if waiting room, "game" if match in progress, "spectate" if watching, "loading" if loading screen
+- room_id: the room ID number shown on screen (string), null if not visible
+- room_name: room name/password if visible, null otherwise
+- teams_alive: number of teams remaining (integer), null if not visible
+- players_alive: number of players alive shown on screen (integer), null if not visible  
+- zone_number: current zone/circle number (integer), null if not visible
+- lobby_teams: list of team names visible in lobby list (strings). Extract ALL team names shown.
+- lobby_count: total number of teams in lobby (integer), null if not visible
+- eliminations: list of kills visible in kill feed RIGHT NOW. Each kill:
+  {"killer_name":"exact name","killed_name":"exact name","weapon":"weapon name or empty","killer_team":"team name or empty","killed_team":"team name or empty"}
+  IMPORTANT: Only include kills currently visible on screen. If kill feed is empty, return [].
+  Extract exact player names as shown. Team names only if shown next to player name.
+
+Be precise. Return only the JSON object.'''
 
 phone_connected = False
 iteration = 0
@@ -114,29 +133,81 @@ def write_bridge(extra=None):
 def process_result(result):
     global prev_elim_keys
     changed = False
+
+    # עדכן שדות בסיסיים
     for field in ["mode","room_id","room_name","teams_alive","players_alive","lobby_teams","lobby_count","notes"]:
         v = result.get(field)
         if v is not None and v != [] and v != "":
             state[field] = v; changed = True
     if result.get("zone_number"):
         state["zone"] = result["zone_number"]; changed = True
+
+    # הוסף קבוצות מהלובי
     for tname in (result.get("lobby_teams") or []):
+        tname = tname.strip() if tname else ""
         if tname and tname not in state["teams"]:
             state["teams"][tname] = {"name": tname, "alive": True, "kills": 0}
-            log(f"  -> Team: {tname}"); changed = True
-    new_keys = set()
+            log(f"  -> New team: {tname}"); changed = True
+
+    # עדכן teams_alive — סמן קבוצות כמתות לפי מספר
+    if result.get("teams_alive") is not None:
+        alive_count = result["teams_alive"]
+        # אם יש לנו יותר קבוצות מאשר alive — לא נדע אילו מתו בלי מידע נוסף
+        state["teams_alive"] = alive_count; changed = True
+
+    # טיפול בקילים — מפתח ייחודי עם timestamp שעה לדיוק
+    current_frame_keys = set()
     for elim in (result.get("eliminations") or []):
-        killer = elim.get("killer_name",""); killed = elim.get("killed_name","")
-        key = f"{killer}-{killed}"; new_keys.add(key)
-        if key not in prev_elim_keys and killer and killed:
-            entry = {"ts": time.strftime("%H:%M:%S"), "killer_team": elim.get("killer_team","?"),
-                     "killed_team": elim.get("killed_team","?"), "killer": killer, "killed": killed, "weapon": elim.get("weapon","")}
+        killer = (elim.get("killer_name") or "").strip()
+        killed = (elim.get("killed_name") or "").strip()
+        if not killer or not killed:
+            continue
+        weapon = (elim.get("weapon") or "").strip()
+        killer_team = (elim.get("killer_team") or "").strip()
+        killed_team = (elim.get("killed_team") or "").strip()
+
+        # מפתח: שם+שם (ללא weapon כי PUBG מציג אותו לפעמים שונה)
+        key = f"{killer}|{killed}"
+        current_frame_keys.add(key)
+
+        # רק אם לא ראינו את זה בפריים הקודם
+        if key not in prev_elim_keys:
+            # נסה לזהות קבוצה לפי שם שחקן אם Claude לא מצא
+            if not killer_team:
+                for tname, tdata in state.get("teams",{}).items():
+                    if killer.lower() in tname.lower() or tname.lower() in killer.lower():
+                        killer_team = tname; break
+            if not killed_team:
+                for tname, tdata in state.get("teams",{}).items():
+                    if killed.lower() in tname.lower() or tname.lower() in killed.lower():
+                        killed_team = tname; break
+
+            entry = {
+                "ts": time.strftime("%H:%M:%S"),
+                "killer": killer, "killed": killed,
+                "weapon": weapon,
+                "killer_team": killer_team, "killed_team": killed_team
+            }
             state.setdefault("kills",[]).append(entry)
-            kt = elim.get("killer_team")
-            if kt and kt in state["teams"]:
-                state["teams"][kt]["kills"] = state["teams"][kt].get("kills",0) + 1
-            log(f"  KILL: {killer} -> {killed}"); changed = True
-    if new_keys: prev_elim_keys = new_keys
+
+            # עדכן kills לקבוצה המתאימה
+            if killer_team and killer_team in state.get("teams",{}):
+                state["teams"][killer_team]["kills"] = state["teams"][killer_team].get("kills",0) + 1
+
+            # סמן קבוצה כמתה אם כל השחקנים שלה נהרגו (פשוט: tracked killed)
+            if killed_team and killed_team in state.get("teams",{}):
+                state["teams"][killed_team].setdefault("killed_players", [])
+                if killed not in state["teams"][killed_team]["killed_players"]:
+                    state["teams"][killed_team]["killed_players"].append(killed)
+
+            log(f"  KILL: [{killer_team or '?'}]{killer} -> [{killed_team or '?'}]{killed} ({weapon})")
+            changed = True
+
+    # שמור את הפריים הנוכחי לפריים הבא
+    # רק אם יש eliminations בפריים הזה — כדי לא לאפס כשהkill feed נעלם
+    if current_frame_keys:
+        prev_elim_keys = current_frame_keys
+
     return changed
 
 def load_env():
